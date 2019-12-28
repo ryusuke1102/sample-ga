@@ -1,5 +1,7 @@
 "use strict";
 
+const CHRHEIGHT  = 9;
+const CHRWIDTH   = 8;
 const FONT       = "48px monospace"; //　使用フォント
 const HEIGHT     = 120;
 const WIDTH      = 128;
@@ -13,13 +15,15 @@ const TILESIZE   = 8;
 
 let   gScreen;
 let   gFrame = 0;
-let   gImgMap;                  //　マップ
+let   gImgMap;                     //　マップ
 let   gImgPlayer;                  //プレイヤー
 let   gWidth;
 let   gHeight;
+let   gPlayerX = 0;
+let   gPlayerY = 0;
 
 const gFileMap = "img/map.png";
-const gFilePlayer = "img/cat.gif";
+const gFilePlayer = "img/player.png";
 
 const gMAP = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -60,13 +64,21 @@ function DrawMain()
 {
     const  g = gScreen.getContext( "2d" );
 
-    for ( let y = 0; y < 32; y++){
-        for ( let x = 0; x < 64; x++){
-            DrawTile( g, x * TILESIZE, y * TILESIZE, gMAP[ y * MAP_WIDTH + x ] )
+    for ( let y = 0; y < 20; y++){
+        for ( let x = 0; x < 20; x++){
+            let    px = gPlayerX + x
+            let    py = gPlayerY + y
+            DrawTile( g, x * TILESIZE - TILESIZE / 2, y * TILESIZE, gMAP[ py * MAP_WIDTH + px ] )
         }
     }
 
-    g.drawImage( gImgPlayer , 30, 15);
+    g.fillStyle = "#ff0000"
+    g.fillRect( 0, HEIGHT / 2 - 1, WIDTH, 2 );
+    g.fillRect( WIDTH / 2 -1, 0, 2, HEIGHT );
+
+    g.drawImage(gImgPlayer,
+                CHRWIDTH, 0, CHRWIDTH, CHRHEIGHT, 
+                WIDTH / 2 - CHRWIDTH / 2, HEIGHT / 2 - CHRHEIGHT + TILESIZE / 2, CHRWIDTH, CHRHEIGHT );
 
     //g.font   = FONT
     //g.fillText( "hello" + gFrame, gFrame / 10, 64 ); 
@@ -114,6 +126,19 @@ function WmTimer ()
     gFrame++;
     WmPaint();
 }
+
+// 　キー入力のイベント
+window.onkeydown = function( ev )
+{
+    let     c = ev.keyCode;
+
+    if( c == 37 )   gPlayerX--;
+    if( c == 38 )   gPlayerY--;
+    if( c == 39 )   gPlayerX++;
+    if( c == 40 )   gPlayerY++;
+
+}
+
 
 window.onload = function()
 {
