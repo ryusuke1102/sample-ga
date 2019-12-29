@@ -2,32 +2,38 @@
 
 const CHRHEIGHT  = 9;
 const CHRWIDTH   = 8;
-const FONT       = "48px monospace"; //　使用フォント
+const FONT       = "８px monospace"; //　使用フォント
+const FONTSTYLE  = "#ffffff";
 const HEIGHT     = 120;
 const WIDTH      = 128;
 const MAP_WIDTH  = 32;
 const MAP_HEIGHT = 32;
 const SMOOTH     = 0;
+const START_X    = 15;
+const START_Y    = 17;
 const TILEROW    = 4;
 const TILECOLUMN = 4;
 const TILESIZE   = 8;
+const WINDSTYLE  = "rgba( 0, 0, 0, 0.75 )";
+
 
 
 let   gScreen;
 let   gFrame = 0;
-let   gImgMap;                     //　マップ
-let   gImgPlayer;                  //プレイヤー
+let   gImgMap;                             //　マップ
+let   gImgPlayer;                          //プレイヤー
 let   gWidth;
 let   gHeight;
-let   gPlayerX = 0;
-let   gPlayerY = 0;
+let   gPlayerX = START_X * TILESIZE;
+let   gPlayerY = START_Y * TILESIZE;
+
 
 const gFileMap = "img/map.png";
 const gFilePlayer = "img/player.png";
 
 const gMAP = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 0, 3, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 3, 3, 7, 7, 7, 7, 7, 7, 7, 7, 7, 6, 6, 3, 6, 3, 6, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 3, 3, 6, 6, 7, 7, 7, 2, 2, 2, 7, 7, 7, 7, 7, 7, 7, 6, 3, 0, 0, 0, 3, 3, 0, 6, 6, 6, 0, 0, 0,
@@ -64,11 +70,20 @@ function DrawMain()
 {
     const  g = gScreen.getContext( "2d" );
 
-    for ( let y = 0; y < 20; y++){
-        for ( let x = 0; x < 20; x++){
-            let    px = gPlayerX + x
-            let    py = gPlayerY + y
-            DrawTile( g, x * TILESIZE - TILESIZE / 2, y * TILESIZE, gMAP[ py * MAP_WIDTH + px ] )
+    let     mx = Math.floor( gPlayerX / TILESIZE );
+    let     my = Math.floor( gPlayerY / TILESIZE );
+
+    for ( let dy = -7; dy <= 8; dy++){
+        let     y = dy + 7;
+        let    ty = my + dy;                                //　タイル座標
+        let    py = ( ty + MAP_HEIGHT) % MAP_HEIGHT;        //　ループ後タイル座標Y
+        for ( let dx = -8; dx <= 8; dx++){
+            let    x = dx + 8;
+            let   tx = mx + dx                              //　タイル座標
+            let    px = ( tx + MAP_WIDTH ) % MAP_WIDTH;     //　ループ後タイル座標X
+            DrawTile( g, 
+                      x * TILESIZE - TILESIZE / 2, y * TILESIZE, 
+                      gMAP[ py * MAP_WIDTH + px ] )
         }
     }
 
@@ -80,8 +95,13 @@ function DrawMain()
                 CHRWIDTH, 0, CHRWIDTH, CHRHEIGHT, 
                 WIDTH / 2 - CHRWIDTH / 2, HEIGHT / 2 - CHRHEIGHT + TILESIZE / 2, CHRWIDTH, CHRHEIGHT );
 
-    //g.font   = FONT
-    //g.fillText( "hello" + gFrame, gFrame / 10, 64 ); 
+    g.fillStyle = WINDSTYLE;
+    g.fillRect( 20, 103, 105, 15 );
+
+
+    g.font   = FONT;
+    g.fillStyle = FONTSTYLE;
+    g.fillText( "x=" + gPlayerX + " y=" + gPlayerY + " m=" + gMAP[ my * MAP_WIDTH + mx ], 25, 115 ); 
 }
 
 function DrawTile ( g, x, y, idx )
@@ -136,6 +156,12 @@ window.onkeydown = function( ev )
     if( c == 38 )   gPlayerY--;
     if( c == 39 )   gPlayerX++;
     if( c == 40 )   gPlayerY++;
+
+    //　マップループ処理
+    gPlayerX += MAP_WIDTH * TILESIZE;
+    gPlayerX %= MAP_WIDTH * TILESIZE;
+    gPlayerY += MAP_HEIGHT * TILESIZE;
+    gPlayerY %= MAP_HEIGHT * TILESIZE;
 
 }
 
