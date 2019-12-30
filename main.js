@@ -2,12 +2,14 @@
 
 const CHRHEIGHT  = 9;
 const CHRWIDTH   = 8;
-const FONT       = "８px monospace"; //　使用フォント
+const FONT       = "８px monospace";                           //　使用フォント
 const FONTSTYLE  = "#ffffff";
 const HEIGHT     = 120;
 const WIDTH      = 128;
 const MAP_WIDTH  = 32;
 const MAP_HEIGHT = 32;
+const SCR_WIDTH  = 8;
+const SCR_HEIGHT = 8;
 const SMOOTH     = 0;
 const START_X    = 15;
 const START_Y    = 17;
@@ -16,16 +18,18 @@ const TILECOLUMN = 4;
 const TILESIZE   = 8;
 const WINDSTYLE  = "rgba( 0, 0, 0, 0.75 )";
 
-
+const gKey = new Uint8Array( 0x100 )
 
 let   gScreen;
 let   gFrame = 0;
-let   gImgMap;                             //　マップ
-let   gImgPlayer;                          //プレイヤー
+let   gImgMap;                                                 //　マップ
+let   gImgPlayer;                                              //　プレイヤー
 let   gWidth;
+let   gMoveX = 0;                                               //　移動量
+let   gMoveY = 0;                                               //　移動量
 let   gHeight;
-let   gPlayerX = START_X * TILESIZE;
-let   gPlayerY = START_Y * TILESIZE;
+let   gPlayerX = START_X * TILESIZE + TILESIZE / 2;            //　プレイヤー開始位置X
+let   gPlayerY = START_Y * TILESIZE + TILESIZE / 2;            //　プレイヤー開始位置Y
 
 
 const gFileMap = "img/map.png";
@@ -70,20 +74,29 @@ function DrawMain()
 {
     const  g = gScreen.getContext( "2d" );
 
-    let     mx = Math.floor( gPlayerX / TILESIZE );
-    let     my = Math.floor( gPlayerY / TILESIZE );
+    let     mx = Math.floor( gPlayerX / TILESIZE );         //　プレイヤーのタイル座標X
+    let     my = Math.floor( gPlayerY / TILESIZE );         //　プレイヤーのタイル座標Y
 
-    for ( let dy = -7; dy <= 8; dy++){
-        let     y = dy + 7;
+    for ( let dy = -SCR_HEIGHT; dy <= SCR_WIDTH; dy++){
         let    ty = my + dy;                                //　タイル座標
         let    py = ( ty + MAP_HEIGHT) % MAP_HEIGHT;        //　ループ後タイル座標Y
-        for ( let dx = -8; dx <= 8; dx++){
-            let    x = dx + 8;
+        for ( let dx = -SCR_WIDTH; dx <= SCR_WIDTH; dx++){
             let   tx = mx + dx                              //　タイル座標
             let    px = ( tx + MAP_WIDTH ) % MAP_WIDTH;     //　ループ後タイル座標X
             DrawTile( g, 
-                      x * TILESIZE - TILESIZE / 2, y * TILESIZE, 
-                      gMAP[ py * MAP_WIDTH + px ] )
+                     // x                                * TILESIZE, 
+                     // ( tx + 8 - gPlayerX / TILESIZE ) * TILESIZE, 
+                     //  ( tx + 8 ) * TILESIZE - gPlayerX,
+                     //   tx * TILESIZE + 8 * TILESIZE - gPlayerX,
+                        tx * TILESIZE + WIDTH / 2 - gPlayerX,
+
+                     // y                                * TILESIZE, 
+                     // ( ty + 7 - gPlayerY / TILESIZE ) * TILESIZE, 
+                     //   ( ty + 7 ) * TILESIZE - gPlayerY,
+                     //   ty * TILESIZE + 7 * TILESIZE - gPlayerY,
+                        ty * TILESIZE + HEIGHT / 2 - gPlayerY,
+
+                      gMAP[ py * MAP_WIDTH + px ] );
         }
     }
 
@@ -108,8 +121,28 @@ function DrawTile ( g, x, y, idx )
 {
     const       ix = ( idx % TILECOLUMN ) * TILESIZE;
     const       iy = Math.floor( idx / TILECOLUMN ) * TILESIZE;
-    g.drawImage( gImgMap, ix, iy, TILESIZE, TILESIZE, x, y, TILESIZE, TILESIZE )
+    g.drawImage( gImgMap, ix, iy, TILESIZE, TILESIZE, x, y, TILESIZE, TILESIZE );
+}
 
+//　フィールド進行処理
+function TickField()
+{
+    if( gMoveX !=0 || gMoveY !=0 ){}                //移動中の場合
+    else if( gKey[ 37 ] )   gMoveX = -TILESIZE;
+    else if( gKey[ 38 ] )   gMoveY = -TILESIZE;
+    else if( gKey[ 39 ] )   gMoveX =  TILESIZE;
+    else if( gKey[ 40 ] )   gMoveY =  TILESIZE;
+
+    gPlayerX += Math.sign( gMoveX );                // プレイヤー座標移動X
+    gPlayerY += Math.sign( gMoveY );                // プレイヤー座標移動Y
+    gMoveX   -= Math.sign( gMoveX );                // 移動量消費X
+    gMoveY   -= Math.sign( gMoveY );                // 移動量消費Y
+
+    //　マップループ処理
+    gPlayerX += MAP_WIDTH * TILESIZE;
+    gPlayerX %= MAP_WIDTH * TILESIZE;
+    gPlayerY += MAP_HEIGHT * TILESIZE;
+    gPlayerY %= MAP_HEIGHT * TILESIZE;
 }
 
 function WmPaint()
@@ -145,6 +178,8 @@ function WmTimer ()
 {
     gFrame++;
     WmPaint();
+    TickField();
+
 }
 
 // 　キー入力のイベント
@@ -152,17 +187,14 @@ window.onkeydown = function( ev )
 {
     let     c = ev.keyCode;
 
-    if( c == 37 )   gPlayerX--;
-    if( c == 38 )   gPlayerY--;
-    if( c == 39 )   gPlayerX++;
-    if( c == 40 )   gPlayerY++;
+    gKey[ c ] = 1;
 
-    //　マップループ処理
-    gPlayerX += MAP_WIDTH * TILESIZE;
-    gPlayerX %= MAP_WIDTH * TILESIZE;
-    gPlayerY += MAP_HEIGHT * TILESIZE;
-    gPlayerY %= MAP_HEIGHT * TILESIZE;
+}
 
+//　キー入力(UP)イベント
+window.onkeyup = function( ev )
+{
+    gKey[ ev.keyCode ] = 0;
 }
 
 
