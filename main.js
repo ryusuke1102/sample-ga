@@ -1,16 +1,19 @@
 "use strict";
 
-const CHRHEIGHT  = 9;
-const CHRWIDTH   = 8;
-const FONT       = "８px monospace";                           //　使用フォント
-const FONTSTYLE  = "#ffffff";
-const HEIGHT     = 120;
-const WIDTH      = 128;
-const MAP_WIDTH  = 32;
-const MAP_HEIGHT = 32;
+const CHRHEIGHT  = 9;                                           //　キャラの高さ
+const CHRWIDTH   = 8;                                           //　キャラの幅
+const FONT       = "10px monospace";                            //　使用フォント
+const FONTSTYLE  = "#ffffff";                                   //　文字色
+const HEIGHT     = 120;                                         //　仮装画面サイズ　高さ
+const WIDTH      = 128;                                         //　仮装画面サイズ　幅
+const INTERVAL   = 33;                                          //　フレーム呼び出し間隔　
+const MAP_WIDTH  = 32;                                          //　マップ高さ                                       
+const MAP_HEIGHT = 32;                                          //　マップ幅
 const SCR_WIDTH  = 8;
 const SCR_HEIGHT = 8;
+const SCROLL     = 1;                                           //　スクロール速度
 const SMOOTH     = 0;
+const START_HP   = 20;
 const START_X    = 15;
 const START_Y    = 17;
 const TILEROW    = 4;
@@ -21,15 +24,22 @@ const WINDSTYLE  = "rgba( 0, 0, 0, 0.75 )";
 const gKey = new Uint8Array( 0x100 )
 
 let   gAngle = 0;                                               //　プレイヤーの向き
+let   gEx    = 0;                                               //　経験値
+let   gHP    = START_HP;                                        //　初期HP
+let   gMHP   = START_HP;                                        //　最大HP 
+let   gLv    = 1;                                               //　プレイヤーレベル
 let   gFrame = 0;                                               //　内部カウンタ
 let   gImgMap;                                                  //　マップ画像
 let   gImgPlayer;                                               //　プレイヤー画像
 let   gHeight;                                                  //　実画面の高さ
 let   gWidth;                                                   //　実画面の幅
-let   gMoveX = 0;                                               //　移動量
-let   gMoveY = 0;                                               //　移動量
-let   gPlayerX = START_X * TILESIZE + TILESIZE / 2;             //　プレイヤー開始位置X
-let   gPlayerY = START_Y * TILESIZE + TILESIZE / 2;             //　プレイヤー開始位置Y
+let   gMessage1 = null;                                         //　メッセージ１行目
+let   gMessage2 = null;                                         //　メッセージ２行目
+let   gMoveX    = 0;                                            //　移動量
+let   gMoveY    = 0;                                            //　移動量
+let   gItem     = 0;                                            //　所持アイテム
+let   gPlayerX  = START_X * TILESIZE + TILESIZE / 2;            //　プレイヤー開始位置X
+let   gPlayerY  = START_Y * TILESIZE + TILESIZE / 2;            //　プレイヤー開始位置Y
 let   gScreen;                                                  //　仮想画面
 
 
@@ -108,13 +118,49 @@ function DrawMain()
                 ( gFrame >> 4 & 1 ) * CHRWIDTH, gAngle * CHRHEIGHT, CHRWIDTH, CHRHEIGHT, 
                 WIDTH / 2 - CHRWIDTH / 2, HEIGHT / 2 - CHRHEIGHT + TILESIZE / 2, CHRWIDTH, CHRHEIGHT );
 
-    g.fillStyle = WINDSTYLE;
-    g.fillRect( 20, 103, 105, 15 );
+    //　ステータスウィンドウ
+    g.fillStyle = WINDSTYLE;                            //　ウインドウのいろ
+    g.fillRect( 2, 2, 44, 37 );                       //　矩形描画
 
+    DrawMessage( g );                                   //　メッセージ描画
+    DrawStatus( g );                                    //　ステータス描画
+
+    /*
+    g.fillStyle = WINDSTYLE;                            //　ウインドウのいろ
+    g.fillRect( 20, 3, 105, 15 );                       //　矩形描画
 
     g.font   = FONT;
     g.fillStyle = FONTSTYLE;
-    g.fillText( "x=" + gPlayerX + " y=" + gPlayerY + " m=" + gMAP[ my * MAP_WIDTH + mx ], 25, 115 ); 
+    g.fillText( "x=" + gPlayerX + " y=" + gPlayerY + " m=" + gMAP[ my * MAP_WIDTH + mx ], 22, 15 ); 
+    */
+}
+
+//　メッセージ描画
+function DrawMessage( g )
+{
+    if( !gMessage1 ){                                    //　メッセージが存在しない場合の処理
+        return;
+    }
+
+    g.fillStyle = WINDSTYLE;                            //　ウインドウのいろ
+    g.fillRect( 4, 84, 120, 30 );                       //　矩形描画
+
+    g.font   = FONT;
+    g.fillStyle = FONTSTYLE;
+
+    g.fillText( gMessage1, 6, 96 );
+    if( gMessage2 ){
+    g.fillText( gMessage2, 6, 110 );
+}
+}
+
+//　ステータス描画
+function DrawStatus ( g ){
+    g.font   = FONT;
+    g.fillStyle = FONTSTYLE;
+    g.fillText( "Lv " + gLv, 4, 13 );
+    g.fillText( "HP " + gHP, 4, 25 );
+    g.fillText( "Ex " + gEx, 4, 37 );
 }
 
 function DrawTile ( g, x, y, idx )
@@ -124,10 +170,31 @@ function DrawTile ( g, x, y, idx )
     g.drawImage( gImgMap, ix, iy, TILESIZE, TILESIZE, x, y, TILESIZE, TILESIZE );
 }
 
+// function SetMessage ( v1, v2 = null)                 IE対応してない
+function SetMessage ( v1, v2 ){
+    gMessage1 = v1;
+    gMessage2 = v2;
+}
+
+
+function Sign( val )
+{
+    if( val == 0){
+        return( 0 );
+    }
+    if( val < 0 ){
+        return( -1 );
+    }
+    else{
+        return( 1 );  
+    }
+}
+
+
 //　フィールド進行処理
 function TickField()
 {
-    if( gMoveX !=0 || gMoveY !=0 ){}                //移動中の場合
+    if( gMoveX !=0 || gMoveY !=0 || gMessage1 ){}                             //移動中またはメッセージ表示中の場合
     else if( gKey[ 37 ] ) { gAngle = 1;  gMoveX = -TILESIZE; }
     else if( gKey[ 38 ] ) { gAngle = 3;  gMoveY = -TILESIZE; }
     else if( gKey[ 39 ] ) { gAngle = 2;  gMoveX =  TILESIZE; }
@@ -144,13 +211,50 @@ function TickField()
     if( m < 3 ) {
         gMoveX = 0;
         gMoveY = 0;
-    }                                               // 侵入不可地形の場合
+    }                                                               // 侵入不可地形の場合
 
+    if( Math.abs( gMoveX ) + Math.abs( gMoveY ) == SCROLL ){        //　マス目移動が終わる直前
 
-    gPlayerX += Math.sign( gMoveX );                // プレイヤー座標移動X
-    gPlayerY += Math.sign( gMoveY );                // プレイヤー座標移動Y
-    gMoveX   -= Math.sign( gMoveX );                // 移動量消費X
-    gMoveY   -= Math.sign( gMoveY );                // 移動量消費Y
+    if( m == 8 || m == 9 ){                                         //　城
+        SetMessage( "魔王を倒して！", null );   
+    }
+
+    if( m == 10 || m == 11 ){                                       //　街
+        SetMessage( "西の果てにも", "村があります" );
+    }
+
+    if( m == 12 ){                                                  //　村
+        SetMessage( "カギは", "洞窟にあります" );
+    }
+
+    if( m == 13 ){                                       　　　　　　　//　洞窟
+        gItem = 1;                                                  //カギ入手
+        SetMessage( "カギを手に入れた", null );
+    }
+
+    if( m == 14 ){                                                  //　扉
+        if( gItem == 0 ){
+        gPlayerY -= TILESIZE;                                       //　ひとマス上で移動
+        SetMessage( "カギが必要です", null );
+        }else{
+        SetMessage( "扉が開いた", null );
+    }                 　　　　　　　
+}
+
+    if( m == 15 ){                                     　　　　　　　  //　ボス
+        SetMessage( "魔王を倒し", "世界に平和が訪れた"  );
+    }
+
+    if( Math.random() * 4 < 1 ){                                    //　ランダムエンカウント
+        SetMessage( "敵が現れた！", null );
+    }
+
+}
+
+    gPlayerX += Sign( gMoveX ) * SCROLL;       // プレイヤー座標移動X
+    gPlayerY += Sign( gMoveY ) * SCROLL;       // プレイヤー座標移動Y
+    gMoveX   -= Sign( gMoveX ) * SCROLL;       // 移動量消費X
+    gMoveY   -= Sign( gMoveY ) * SCROLL;       // 移動量消費Y
 
     //　マップループ処理
     gPlayerX += MAP_WIDTH * TILESIZE;
@@ -196,12 +300,17 @@ function WmTimer ()
 
 }
 
-// 　キー入力のイベント
+// 　キー入力(Down)イベント
 window.onkeydown = function( ev )
 {
     let     c = ev.keyCode;
 
+    if( gKey[ c ] != 0){               //　既に押下中の場合（キーリピート）
+        return;
+    }
     gKey[ c ] = 1;
+
+    gMessage1 = null;
 
 }
 
@@ -209,6 +318,7 @@ window.onkeydown = function( ev )
 window.onkeyup = function( ev )
 {
     gKey[ ev.keyCode ] = 0;
+
 }
 
 
@@ -224,5 +334,5 @@ window.onload = function()
 
     WmSize();
     window.addEventListener( "resize", function() { WmSize() });
-    setInterval( function() { WmTimer() }, 33);   //３３秒間隔で関数を呼び出すよう指示 30.3fps
+    setInterval( function() { WmTimer() }, INTERVAL);   //３３秒間隔で関数を呼び出すよう指示 30.3fps
 }
