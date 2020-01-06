@@ -23,31 +23,38 @@ const WINDSTYLE  = "rgba( 0, 0, 0, 0.75 )";
 
 const gKey = new Uint8Array( 0x100 )
 
-let   gAngle = 0;                                               //　プレイヤーの向き
-let   gEx    = 0;                                               //　経験値
-let   gHP    = START_HP;                                        //　初期HP
-let   gMHP   = START_HP;                                        //　最大HP 
-let   gLv    = 1;                                               //　プレイヤーレベル
-let   gFrame = 0;                                               //　内部カウンタ
+let   gAngle  = 0;                                              //　プレイヤーの向き
+let   gEx     = 0;                                              //　経験値
+let   gHP     = START_HP;                                       //　初期HP
+let   gMHP    = START_HP;                                       //　最大HP 
+let   gLv     = 1;                                              //　プレイヤーレベル
+let   gCursor = 0;                                              //　カーソル位置
+let   gEnemyType;                                               //　敵種別
+let   gFrame  = 0;                                              //　内部カウンタ
 let   gImgMap;                                                  //　マップ画像
 let   gImgPlayer;                                               //　プレイヤー画像
+let   gImgMonster;                                              //　モンスター画像
 let   gHeight;                                                  //　実画面の高さ
 let   gWidth;                                                   //　実画面の幅
 let   gMessage1 = null;                                         //　メッセージ１行目
 let   gMessage2 = null;                                         //　メッセージ２行目
 let   gMoveX    = 0;                                            //　移動量
 let   gMoveY    = 0;                                            //　移動量
-let   gItem     = 0;                                            //　所持アイテム
+let   gItem     = 0;                                            //　所持アイテム 
+let   gPhase    = 0;                                            //　戦闘フェーズ
 let   gPlayerX  = START_X * TILESIZE + TILESIZE / 2;            //　プレイヤー開始位置X
 let   gPlayerY  = START_Y * TILESIZE + TILESIZE / 2;            //　プレイヤー開始位置Y
 let   gScreen;                                                  //　仮想画面
 
 
 
-const gFileMap = "img/map.png";
-const gFilePlayer = "img/player.png";
+const gFileMap      = "img/map.png";
+const gFileMonster  = "img/monster.png"
+const gFilePlayer   = "img/player.png";
 
-const gMAP = [
+const gEncounter = [ 0, 0, 0, 1, 0, 0, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0 ];
+
+const gMAP = [ 
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 0, 3, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -82,9 +89,57 @@ const gMAP = [
     7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 7, 7, 7, 7, 7,
 ]
 
-function DrawMain()
+//　戦闘行動処理
+function Action()
 {
-    const  g = gScreen.getContext( "2d" );
+    gPhase++;                                           // フェーズ経過
+
+    if( gPhase == 3 ){
+        SetMessage( "敵の攻撃！", "999のダメージ" );
+        return;
+    }
+
+    if( gCursor == 0 ){                                 //　戦う選択時
+        SetMessage( "あなたの攻撃", "333のダメージ" );
+    return;
+    }
+
+    SetMessage( "あなたは逃げ出した", null );
+
+}
+
+//　経験値加算
+function AddExp( val )
+{
+    gEx += val;                                         //　経験値加算
+    while( gLv * ( gLv + 1 ) * 2 <= gEx ){              //　必要経験値条件分岐
+        gLv++;
+        gMHP += 4 + Math.floor( Math.random() * 3 );
+    }
+}
+
+//　戦闘画面描画処理
+function DrawFight( g )
+{
+    g.fillStyle = "#000000";                            //　背景色
+    g.fillRect( 0, 0, WIDTH, HEIGHT );                  //　画面全体を矩形描画
+
+    let     w = gImgMonster.width / 4
+    let     h = gImgMonster.height;
+
+    g.drawImage( gImgMonster, gEnemyType * w, 0, w, h,  Math.floor( WIDTH / 2 - w / 2 ), Math.floor( HEIGHT / 2 - h / 2 ), w, h );  //　
+
+    DrawMessage( g );                                   //　メッセージ描画
+    DrawStatus( g );                                    //　ステータス描画
+
+    if( gPhase == 2){                                   //　戦闘フェーズがコマンド選択中の場合
+        g.fillText( "➡︎", 6, 96 + 14 * gCursor );
+    }
+} 
+
+//　フィールド描画処理
+function DrawMap( g )
+{
 
     let     mx = Math.floor( gPlayerX / TILESIZE );         //　プレイヤーのタイル座標X
     let     my = Math.floor( gPlayerY / TILESIZE );         //　プレイヤーのタイル座標Y
@@ -120,11 +175,24 @@ function DrawMain()
 
     //　ステータスウィンドウ
     g.fillStyle = WINDSTYLE;                            //　ウインドウのいろ
-    g.fillRect( 2, 2, 44, 37 );                       //　矩形描画
+    g.fillRect( 2, 2, 44, 37 );                         //　矩形描画
 
     DrawMessage( g );                                   //　メッセージ描画
     DrawStatus( g );                                    //　ステータス描画
 
+
+
+}
+
+function DrawMain()
+{
+    const  g = gScreen.getContext( "2d" );
+
+    if( gPhase == 0 ){
+        DrawMap( g );                                   //　フィールド画面描画
+    }else{
+        DrawFight( g );
+    }
     /*
     g.fillStyle = WINDSTYLE;                            //　ウインドウのいろ
     g.fillRect( 20, 3, 105, 15 );                       //　矩形描画
@@ -138,7 +206,7 @@ function DrawMain()
 //　メッセージ描画
 function DrawMessage( g )
 {
-    if( !gMessage1 ){                                    //　メッセージが存在しない場合の処理
+    if( !gMessage1 ){                                   //　メッセージが存在しない場合の処理
         return;
     }
 
@@ -151,6 +219,8 @@ function DrawMessage( g )
     g.fillText( gMessage1, 6, 96 );
     if( gMessage2 ){
     g.fillText( gMessage2, 6, 110 );
+
+    
 }
 }
 
@@ -160,6 +230,7 @@ function DrawStatus ( g ){
     g.fillStyle = FONTSTYLE;
     g.fillText( "Lv " + gLv, 4, 13 );
     g.fillText( "HP " + gHP, 4, 25 );
+    g.fillText( " /" + gMHP, 30, 25 )
     g.fillText( "Ex " + gEx, 4, 37 );
 }
 
@@ -169,6 +240,14 @@ function DrawTile ( g, x, y, idx )
     const       iy = Math.floor( idx / TILECOLUMN ) * TILESIZE;
     g.drawImage( gImgMap, ix, iy, TILESIZE, TILESIZE, x, y, TILESIZE, TILESIZE );
 }
+
+function LoadImage(){
+    gImgMap        = new Image(); gImgMap.src = gFileMap;
+    gImgMonster    = new Image(); gImgMonster.src = gFileMonster;       //　モンスター画像読み込み
+    gImgPlayer     = new Image(); gImgPlayer.src = gFilePlayer;
+}
+
+
 
 // function SetMessage ( v1, v2 = null)                 IE対応してない
 function SetMessage ( v1, v2 ){
@@ -201,8 +280,8 @@ function TickField()
     else if( gKey[ 40 ] ) { gAngle = 0;  gMoveY =  TILESIZE; }
 
     //　移動後のタイル座標判定
-    let     mx = Math.floor( ( gPlayerX + gMoveX ) / TILESIZE ); //　タイル座標X
-    let     my = Math.floor( ( gPlayerY + gMoveY ) / TILESIZE ); //　タイル座標Y
+    let     mx = Math.floor( ( gPlayerX + gMoveX ) / TILESIZE );              //　タイル座標X
+    let     my = Math.floor( ( gPlayerY + gMoveY ) / TILESIZE );              //　タイル座標Y
     mx += MAP_WIDTH;
     mx %= MAP_WIDTH;
     my += MAP_HEIGHT;
@@ -214,8 +293,8 @@ function TickField()
     }                                                               // 侵入不可地形の場合
 
     if( Math.abs( gMoveX ) + Math.abs( gMoveY ) == SCROLL ){        //　マス目移動が終わる直前
-
     if( m == 8 || m == 9 ){                                         //　城
+        gHP = gMHP;                                                 //　HP全回復の処理
         SetMessage( "魔王を倒して！", null );   
     }
 
@@ -245,7 +324,9 @@ function TickField()
         SetMessage( "魔王を倒し", "世界に平和が訪れた"  );
     }
 
-    if( Math.random() * 4 < 1 ){                                    //　ランダムエンカウント
+    if( Math.random() * 4 < gEncounter[ m ]) {                       //　ランダムエンカウント
+        gPhase = 1;                                                  //　敵出現フェイズ
+        gEnemyType = 1;                                               //　敵種別
         SetMessage( "敵が現れた！", null );
     }
 
@@ -310,6 +391,33 @@ window.onkeydown = function( ev )
     }
     gKey[ c ] = 1;
 
+    if( gPhase == 1){                  //　敵が現れた場合
+        gPhase = 2;                    //　戦闘コマンド選択フェーズ
+        SetMessage( "　　　戦う", "　　　逃げる" );
+        return;
+    }
+
+    if( gPhase == 2 ){
+        if( c == 13 || c == 90 ){
+            Action();                   //　戦闘行動処理
+        }else{
+        gCursor = 1 - gCursor;          //　カーソル移動
+        }
+    return;
+    }   
+
+    if( gPhase == 3){
+        Action();
+        return;
+    }
+
+    if( gPhase == 4 ){
+        gPhase = 0;
+        gHP -= 5;
+        AddExp( gEnemyType + 1 );
+    }
+
+
     gMessage1 = null;
 
 }
@@ -324,8 +432,8 @@ window.onkeyup = function( ev )
 
 window.onload = function()
 {
-    gImgMap        = new Image(); gImgMap.src = gFileMap;
-    gImgPlayer     = new Image(); gImgPlayer.src = gFilePlayer;
+
+    LoadImage();
 
     gScreen        = document.createElement( "canvas" );
     gScreen.width  = WIDTH;
