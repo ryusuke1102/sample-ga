@@ -324,18 +324,7 @@ function SetMessage ( v1, v2 ){
 }
 
 
-function Sign( val )
-{
-    if( val == 0){
-        return( 0 );
-    }
-    if( val < 0 ){
-        return( -1 );
-    }
-    else{
-        return( 1 );  
-    }
-}
+
 
 
 //　フィールド進行処理
@@ -415,10 +404,10 @@ function TickField()
 
 }
 
-    gPlayerX += Sign( gMoveX ) * SCROLL;       // プレイヤー座標移動X
-    gPlayerY += Sign( gMoveY ) * SCROLL;       // プレイヤー座標移動Y
-    gMoveX   -= Sign( gMoveX ) * SCROLL;       // 移動量消費X
-    gMoveY   -= Sign( gMoveY ) * SCROLL;       // 移動量消費Y
+    gPlayerX += TUG.Sign( gMoveX ) * SCROLL;       // プレイヤー座標移動X
+    gPlayerY += TUG.Sign( gMoveY ) * SCROLL;       // プレイヤー座標移動Y
+    gMoveX   -= TUG.Sign( gMoveX ) * SCROLL;       // 移動量消費X
+    gMoveY   -= TUG.Sign( gMoveY ) * SCROLL;       // 移動量消費Y
 
     //　マップループ処理
     gPlayerX += MAP_WIDTH * TILESIZE;
@@ -457,7 +446,7 @@ function WmSize(){
 }
 
 //　タイマーイベント発生時の処理
-function WmTimer ()
+TUG.onTimer = function()
 {
     if( !gMessage1 ){
         gFrame++;
@@ -540,7 +529,6 @@ window.onkeyup = function( ev )
 
 }
 
-
 window.onload = function()
 {
 
@@ -553,5 +541,5 @@ window.onload = function()
 
     WmSize();
     window.addEventListener( "resize", function() { WmSize() });
-    setInterval( function() { WmTimer() }, INTERVAL);   //３３秒間隔で関数を呼び出すよう指示 30.3fps
+    TUG.init();
 }
